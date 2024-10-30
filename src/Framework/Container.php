@@ -8,26 +8,14 @@ use ReflectionClass, ReflectionNamedType;
 use Framework\Exceptions\ContainerException;
 
 
-/**
- * Container class is responsible for managing and resolving class dependencies.
- */
+
 class Container
 {
-    /**
-     * Holds the definitions of the classes and their dependencies.
-     * 
-     * @var array
-     */
+
     private array $definitions = [];
+    private array $resolved = [];
 
 
-    /**
-     * Adds new class definitions to the container.
-     * 
-     * @param array $newDefinitions An associative array where keys are class names 
-     *                              and values are class implementations or callbacks.
-     * @return void
-     */
     public function addDefinitions(array $newDefinitions)
     {
         // Merging two arrays using spread operator instead of array_merge()
@@ -35,14 +23,6 @@ class Container
     }
 
 
-    /**
-     * Resolves a class by its name and injects its dependencies automatically.
-     * 
-     * @param string $className The fully qualified name of the class to be resolved.
-     * @return object The instantiated class with its dependencies injected.
-     * 
-     * @throws ContainerException If the class is not instantiable or has invalid dependencies.
-     */
     public function resolve(string $className)
     {
         $reflectionClass = new ReflectionClass($className);
@@ -76,8 +56,28 @@ class Container
             if (!$type instanceof ReflectionNamedType || $type->isBuiltin()) {
                 throw new ContainerException("Failed to resolve class {$className} because invalid param name.");
             }
+
+            $dependencies[] = $this->get($type->getName());
         }
 
-        dd($params);
+        return $reflectionClass->newInstanceArgs($dependencies);
+    }
+
+    function get(string $id)
+    {
+        if (!array_key_exists($id, $this->definitions)) {
+            throw new ContainerException("Class {#id} does not exist in container.");
+        }
+
+        if (array_key_exists($id, $this->resolved)) {
+            return $this->resolved[$id];
+        }
+
+        $factory = $this->definitions[$id];
+        $dependency = $factory();
+
+        $this->resolved[$id] = $dependency;
+
+        return $dependency;
     }
 }
